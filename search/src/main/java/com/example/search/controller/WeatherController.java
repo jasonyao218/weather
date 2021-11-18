@@ -29,8 +29,8 @@ public class WeatherController {
     }
 
     @GetMapping("/weather")
-    public ResponseEntity<?> queryWeatherByCity(@RequestParam(required = true) String city) {
-        return new ResponseEntity<>(weatherService.findCityIdByName(city), HttpStatus.OK);
+    public ResponseEntity<?> queryWeatherByCity(@RequestParam(required = true,name="city") List<String> cities) {
+        return new ResponseEntity<>(weatherService.findCityIdByName(cities), HttpStatus.OK);
     }
 
 

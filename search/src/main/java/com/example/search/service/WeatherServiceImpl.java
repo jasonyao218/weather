@@ -2,37 +2,56 @@ package com.example.search.service;
 
 
 import com.example.search.config.EndpointConfig;
-import com.example.search.pojo.City;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Service
 public class WeatherServiceImpl implements WeatherService{
 
     private final RestTemplate restTemplate;
 
-
     public WeatherServiceImpl(RestTemplate getRestTemplate) {
         this.restTemplate = getRestTemplate;
     }
 
+    @Qualifier("threadPoolExecutor")
+    @Autowired
+    ThreadPoolExecutor threadPoolExecutor;
+
     @Override
     @Retryable(include = IllegalAccessError.class)
-    public List<Integer> findCityIdByName(String city) {
-        City[] cities = restTemplate.getForObject(EndpointConfig.queryWeatherByCity + city, City[].class);
-        List<Integer> ans = new ArrayList<>();
-        for(City c: cities) {
-            if(c != null && c.getWoeid() != null) {
-                ans.add(c.getWoeid());
-            }
+    public List<Map<String, Map>> findCityIdByName(List<String> cities) {
+        StringBuilder url = new StringBuilder();
+        url.append(cities.get(0));
+        for(int i = 1; i < cities.size(); i++) {
+            String curr = cities.get(i);
+            url.append("&city=");
+            url.append(curr);
         }
-        return ans;
+        List<Integer> cityList = restTemplate.getForObject(EndpointConfig.queryWeatherByCity + url.toString(), List.class);
+
+        List<Map<String, Map>> completableFuturesList = new ArrayList<>();
+
+        for(int i = 0; i < cityList.size(); i++) {
+            int curr_id = cityList.get(i);
+            completableFuturesList.add(findCityNameById(curr_id));
+        }
+        try {
+            return CompletableFuture.completedFuture(completableFuturesList).get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     @Override
